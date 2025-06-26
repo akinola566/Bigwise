@@ -28,11 +28,6 @@
       transition: background 0.4s;
       overflow-x: hidden;
     }
-    body.blur {
-      filter: blur(6px);
-      pointer-events: none;
-      user-select: none;
-    }
     .header {
       background: linear-gradient(to right, #001f3f 60%, #004dff 100%);
       color: var(--white);
@@ -83,7 +78,7 @@
     }
     /* Welcome Card */
     .home-welcome {
-      margin: 35px auto 14px auto;
+      margin: 35px auto 70px auto;
       max-width: 480px;
       background: linear-gradient(135deg, var(--panel) 80%, var(--neon) 100%);
       border-radius: 24px;
@@ -93,7 +88,9 @@
       position: relative;
       overflow: hidden;
       animation: fadeInUp 1.2s cubic-bezier(.19,1,.22,1);
+      display: none;
     }
+    .home-welcome.active { display: block; }
     .home-welcome h1 {
       font-family: 'Orbitron', sans-serif;
       font-size: 2.6em;
@@ -156,6 +153,28 @@
       from {opacity:0;}
       to {opacity:1;}
     }
+    /* Centered Loader */
+    .btc-loader-center {
+      position: fixed;
+      inset: 0;
+      background: rgba(13,17,43,0.98);
+      z-index: 2000;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      animation: fadeIn 0.6s;
+    }
+    .btc-loader-center .btc-loader {
+      margin: 0 auto 18px auto;
+    }
+    .btc-loader-center .loading-txt {
+      color: #ffb347;
+      font-size: 1.22em;
+      letter-spacing: 1px;
+      font-family: 'Orbitron',sans-serif;
+      animation: glow 2s infinite alternate;
+    }
     /* Popup Styles */
     .popup-bg {
       position: fixed;
@@ -166,7 +185,9 @@
       align-items: center;
       justify-content: center;
       animation: fadeIn 0.7s;
+      display: none;
     }
+    .popup-bg.active { display: flex; }
     .popup {
       background: linear-gradient(135deg, #191e3a 80%, #00fff7 100%);
       border-radius: 24px;
@@ -249,6 +270,52 @@
         padding: 14px 8vw;
       }
       .popup {padding: 26px 4vw 23px 4vw;}
+      .bottom-nav {font-size: 0.88em;}
+    }
+    /* Bottom Navigation Bar */
+    .bottom-nav {
+      position: fixed;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      background: linear-gradient(90deg, #181c37 70%, #00bfff 120%);
+      border-top: 1px solid #22304d;
+      display: flex;
+      justify-content: space-around;
+      align-items: center;
+      box-shadow: 0 -2px 18px #0003;
+      z-index: 1500;
+      padding: 0;
+      height: 62px;
+    }
+    .bottom-nav .nav-item {
+      flex: 1 1 0%;
+      text-align: center;
+      padding: 8px 0 4px 0;
+      color: #b6cdfb;
+      font-size: 1.07em;
+      font-family: 'Roboto',sans-serif;
+      transition: color 0.18s;
+      cursor: pointer;
+      border-top: 2.5px solid transparent;
+      position: relative;
+      z-index: 2;
+      user-select: none;
+    }
+    .bottom-nav .nav-item:hover,
+    .bottom-nav .nav-item.active {
+      color: var(--neon);
+      border-top: 2.5px solid var(--neon);
+      background: #191e3a22;
+      scale: 1.08;
+      font-weight: bold;
+      text-shadow: 0 2px 10px var(--neon);
+    }
+    .bottom-nav .nav-item .icon {
+      font-size: 1.3em;
+      display: block;
+      margin-bottom: 3px;
+      transition: color 0.2s;
     }
     /* Hide scrollbar for Chrome, Safari and Opera */
     body::-webkit-scrollbar {
@@ -265,23 +332,19 @@
     <button>Post Ads</button>
   </div>
 
-  <div class="home-welcome">
+  <!-- Centered Fullscreen Spinner Loader -->
+  <div class="btc-loader-center" id="btcLoader">
     <div class="btc-loader">
       <div class="spin"></div>
       <div class="icon">
         <img src="https://cryptologos.cc/logos/bitcoin-btc-logo.svg?v=029" width="36" height="36" alt="BTC" />
       </div>
     </div>
-    <h1>Welcome 🤗 to Home</h1>
-    <p>
-      Here in <b>BigWise Bot</b> you can do a lot! <br>
-      <span style="color:#ffb347;">Earn, explore, and grow your rewards</span> with a stunning and intuitive experience.<br>
-      <span style="font-size:1.08em;">Start your journey, unlock features, and win big!</span>
-    </p>
+    <div class="loading-txt">Loading, please wait...</div>
   </div>
 
   <!-- Animated Join Channel Popup -->
-  <div class="popup-bg" id="popupModal" style="display:none;">
+  <div class="popup-bg" id="popupModal">
     <div class="popup" id="popupContent">
       <div class="btc-spin-anim">
         <div class="spin"></div>
@@ -298,29 +361,80 @@
     </div>
   </div>
 
+  <!-- Main Home Welcome Card -->
+  <div class="home-welcome" id="homeWelcome">
+    <div class="btc-loader">
+      <div class="spin"></div>
+      <div class="icon">
+        <img src="https://cryptologos.cc/logos/bitcoin-btc-logo.svg?v=029" width="36" height="36" alt="BTC" />
+      </div>
+    </div>
+    <h1>Welcome 🤗 to Home</h1>
+    <p>
+      Here in <b>BigWise Bot</b> you can do a lot! <br>
+      <span style="color:#ffb347;">Earn, explore, and grow your rewards</span> with a stunning and intuitive experience.<br>
+      <span style="font-size:1.08em;">Start your journey, unlock features, and win big!</span>
+    </p>
+  </div>
+
+  <!-- Bottom Navigation Bar -->
+  <div class="bottom-nav">
+    <div class="nav-item active" id="nav-home">
+      <span class="icon">🏠</span>
+      <span>Home</span>
+    </div>
+    <div class="nav-item" id="nav-wallet">
+      <span class="icon">👛</span>
+      <span>Wallet</span>
+    </div>
+    <div class="nav-item" id="nav-earn">
+      <span class="icon">🎯</span>
+      <span>Earn</span>
+    </div>
+    <div class="nav-item" id="nav-invite">
+      <span class="icon">👥</span>
+      <span>Invite</span>
+    </div>
+    <div class="nav-item" id="nav-support">
+      <span class="icon">❓</span>
+      <span>Support</span>
+    </div>
+  </div>
+
   <script>
-    // Popup logic
-    function showPopup() {
-      document.getElementById('popupModal').style.display = 'flex';
-      document.body.classList.add('blur');
-    }
-    function hidePopup() {
-      document.getElementById('popupModal').style.display = 'none';
-      document.body.classList.remove('blur');
-    }
-    // Show popup on first visit (localStorage check)
+    // UI Flow: Loader -> Popup -> Home
     window.addEventListener('DOMContentLoaded', function() {
-      if (!localStorage.getItem('bigwise_popup_shown')) {
-        showPopup();
-        setTimeout(() => {
-          // After 7s auto-close spinner, leave popup
-          document.getElementById('popupModal').onclick = function(e) {
-            // Only close if clicked on background not content
-            if(e.target === this) hidePopup();
-          };
-        }, 700); // after .7s to allow animation
-        localStorage.setItem('bigwise_popup_shown', 'yes');
-      }
+      // Step 1: Show loader for 2.5s
+      document.getElementById('btcLoader').style.display = 'flex';
+      document.getElementById('popupModal').style.display = 'none';
+      document.getElementById('homeWelcome').classList.remove('active');
+      setTimeout(function() {
+        // Step 2: Hide loader, show popup
+        document.getElementById('btcLoader').style.display = 'none';
+        document.getElementById('popupModal').classList.add('active');
+      }, 2500);
+
+      // Step 3: After popup closes, show home
+      document.getElementById('popupModal').onclick = function(e) {
+        if (e.target === this) {
+          document.getElementById('popupModal').classList.remove('active');
+          document.getElementById('homeWelcome').classList.add('active');
+        }
+      };
+      // Also show home after join click, for user convenience
+      document.querySelector('.join-btn').onclick = function() {
+        window.open('https://t.me/bigwise_channel','_blank');
+        document.getElementById('popupModal').classList.remove('active');
+        document.getElementById('homeWelcome').classList.add('active');
+      };
+
+      // Bottom Nav - Demo active state (optional)
+      document.querySelectorAll('.bottom-nav .nav-item').forEach(function(el) {
+        el.onclick = function() {
+          document.querySelectorAll('.bottom-nav .nav-item').forEach(n => n.classList.remove('active'));
+          this.classList.add('active');
+        }
+      });
     });
   </script>
 </body>
