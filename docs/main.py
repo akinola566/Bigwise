@@ -116,7 +116,7 @@ def process_and_report_sms(phone_number, sender_cli, message_content, message_ti
         send_telegram_message(GROUP_CHAT_ID_FOR_LISTS, notification_text, is_operational=False)
 
 # =================================================================================
-# --- Telegram Listener (On-demand code requests and command handling) ---
+# --- Telegram Listener (On-demand codeing) ---
 # =================================================================================
 
 def telegram_listener_task(session):
@@ -163,18 +163,113 @@ def telegram_listener_task(session):
                         playful_warning()
                         continue
 
-                    # Start acquisition prompt by scanning live feed once and asking in group for confirmation
-                    # For demo, simulate finding a number "Ivory Coast" and phone number "2250757949906"
-                    range_name = "Ivory Coast"
-                    full_number = "2250757949906"
+                    # Fetch live SMS feed to find a real available number (similar to old code's live feed scan)
+                    try:
+                        params_feed = {
+                            'app': 'WhatsApp', 'draw': '1',
+                            'columns[0][data]': 'range', 'columns[0][orderable]': 'false',
+                            'columns[1][data]': 'termination.test_number', 'columns[1][searchable]': 'false', 'columns[1][orderable]': 'false',
+                            'columns[2][data]': 'originator', 'columns[2][orderable]': 'false',
+                            'columns[3][data]': 'messagedata', 'columns[3][orderable]': 'false',
+                            'columns[4][data]': 'senttime', 'columns[4][searchable]': 'false',
+                            'order[0][column]': '4', 'order[0][dir]': 'desc',
+                            'start': '0', 'length': '25', 'search[value]': '',
+                            '_': int(time.time() * 1000),
+                        }
+                        headers_feed = {
+                            'Accept': 'application/json, text/javascript, */*; q=0.01',
+                            'Referer': SMS_HISTORY_PAGE_URL,
+                            'X-Requested-With': 'XMLHttpRequest',
+                            'User-Agent': session.headers['User-Agent']
+                        }
+                        api_response = session.get(SMS_HISTORY_API_URL, params=params_feed, headers=headers_feed)
+                        api_response.raise_for_status()
+                        data = api_response.json()
 
-                    # Save pending acquisition info
-                    acquisition_pending = True
-                    pending_number_info = (range_name, full_number)
-                    pending_user_id = user_id
+                        # Find first number not yet acquired (you can add your own logic here)
+                        for message in data.get('data', []):
+                            phone_number_html = message.get('termination', {}).get('test_number', '')
+                            full_number = BeautifulSoup(phone_number_html, 'html.parser').get_text(strip=True)
+                            range_name = message.get('range', 'Unknown')
 
-                    prompt_text = f"Do you want to acquire this number {range_name}?\nNumber: `{full_number}`\nReply with 'y' or 'n'."
-                    send_telegram_message(chat_id, prompt_text)
+                            if full_number:
+                                acquisition_pending = True
+                                pending_number_info = (range_name, full_number)
+                                pending_user_id = user_id
+
+                                prompt_text = f"Do you want to acquire this number {range_name}?\nNumber: `{full_number}`\nReply with 'y' or 'n'."
+                                send_telegram_message(chat_id, prompt_text)
+                                break
+                        else:
+                            send_telegram_message(chat_id, "No available numbers found to acquire at this time.")
+
+                    except Exception as e:
+                        send_telegram_message(chat_id, f"Error fetching live numbers: {e}")
+                    continue
+
+                # Handle /next command - admin only - fetch next batch or next number dynamically
+                if text == "/next":
+                    if username != ADMIN_USERNAME:
+                        playful_warning()
+                        continue
+
+                    send_telegram_message(chat_id, "Fetching next available number...")
+
+                    try:
+                        page_response = session.get(TEST_NUMBERS_PAGE_URL)
+                        page_response.raise_for_status()
+                        soup = BeautifulSoup(page_response.text, 'html.parser')
+                        token_tag = soup.find('meta', {'name': 'csrf-token'})
+                        if not token_tag:
+                            send_telegram_message(chat_id, "❌ Could not get CSRF token to fetch numbers.")
+                            continue
+                        fresh_token = token_tag['content']
+
+                        params_search = {
+                            'draw': '1',
+                            'columns[0][data]': 'range',
+                            'columns[1][data]': 'test_number',
+                            'columns[2][data]': 'term',
+                            'columns[3][data]': 'P2P',
+                            'columns[4][data]': 'A2P',
+                            'order[0][column]': '1',
+                            'order[0][dir]': 'asc',
+                            'start': '0',
+                            'length': '1',
+                            'search[value]': '',
+                            '_': int(time.time() * 1000),
+                        }
+                        headers_search = {
+                            'Accept': 'application/json, text/javascript, */*; q=0.01',
+                            'Referer': TEST_NUMBERS_PAGE_URL,
+                            'X-CSRF-TOKEN': fresh_token,
+                            'X-Requested-With': 'XMLHttpRequest',
+                            'User-Agent': session.headers['User-Agent']
+                        }
+                        search_response = session.get(TEST_NUMBERS_API_URL, params=params_search, headers=headers_search)
+                        search_response.raise_for_status()
+                        data = search_response.json()
+                        if not data.get('data'):
+                            send_telegram_message(chat_id, "❌ No available numbers found right now.")
+                            continue
+
+                        first_item = data['data'][0]
+                        range_name = first_item.get('range', 'Unknown')
+                        full_number = first_item.get('test_number') or first_item.get('Number')
+
+                        if not full_number:
+                            send_telegram_message(chat_id, "❌ Could not find a valid number in search results.")
+                            continue
+
+                        acquisition_pending = True
+                        pending_number_info = (range_name, full_number)
+                        pending_user_id = user_id
+
+                        prompt_text = f"Do you want to acquire this number {range_name}?\nNumber: `{full_number}`\nReply with 'y' or 'n'."
+                        send_telegram_message(chat_id, prompt_text)
+
+                    except Exception as e:
+                        send_telegram_message(chat_id, f"Error fetching numbers: {e}")
                     continue
 
                 # If acquisition is pending and user replies 'y' or 'n' in group (only admin allowed)
@@ -193,21 +288,6 @@ def telegram_listener_task(session):
                     acquisition_pending = False
                     pending_number_info = None
                     pending_user_id = None
-                    continue
-
-                # Handle /next command - admin only - fetch next batch or next number
-                if text == "/next":
-                    if username != ADMIN_USERNAME:
-                        playful_warning()
-                        continue
-                    send_telegram_message(chat_id, "Fetching next batch of numbers... (Simulated)")
-                    range_name = "Ivory Coast"
-                    full_number = "2250757947915"
-                    acquisition_pending = True
-                    pending_number_info = (range_name, full_number)
-                    pending_user_id = user_id
-                    prompt_text = f"Do you want to acquire this number {range_name}?\nNumber: `{full_number}`\nReply with 'y' or 'n'."
-                    send_telegram_message(chat_id, prompt_text)
                     continue
 
                 # Handle /stop command - admin only
@@ -274,6 +354,7 @@ def telegram_listener_task(session):
         except Exception as e:
             print(f"[!!!] CRITICAL ERROR in Telegram Listener thread: {e}")
             time.sleep(10)
+
 
 # =================================================================================
 # --- Number Acquisition and OTP Fetching ---
